@@ -1053,7 +1053,7 @@ vAPI.tabs = new vAPI.Tabs();
             parts |= 0b1000;
         }
 
-        // vAPI.setIcon(tabId, { parts, state, badge, color });
+        vAPI.setIcon(tabId, { parts, state, badge, color });
     };
 
     // parts: bit 0 = icon

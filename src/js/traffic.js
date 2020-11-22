@@ -137,7 +137,8 @@ const onBeforeRootFrameRequest = function(fctxt) {
     let logData;
 
     // If the site is whitelisted, disregard strict blocking
-    if ( µb.getNetFilteringSwitch(requestURL) === false ) {
+    const trusted = µb.getNetFilteringSwitch(requestURL) === false;
+    if ( trusted ) {
         result = 2;
         if ( loggerEnabled ) {
             logData = { engine: 'u', result: 2, raw: 'whitelisted' };
@@ -205,25 +206,24 @@ const onBeforeRootFrameRequest = function(fctxt) {
     }
 
     const pageStore = µb.bindTabToPageStats(fctxt.tabId, 'beforeRequest');
-    if ( pageStore ) {
+    if ( pageStore !== null ) {
         pageStore.journalAddRootFrame('uncommitted', requestURL);
         pageStore.journalAddRequest(requestHostname, result);
     }
 
-    // Log
     if ( loggerEnabled ) {
-        fctxt.setRealm('network').setFilter(logData);
+        fctxt.setFilter(logData);
     }
 
-    // Modifier(s)?
-    // A modifier is an action which transform the original network request.
     // https://github.com/uBlockOrigin/uBlock-issues/issues/760
     //   Redirect non-blocked request?
-    if ( result === 0 && snfe.hasQuery(fctxt) ) {
-        const directives = snfe.filterQuery(fctxt);
-        if ( directives !== undefined && loggerEnabled ) {
-            fctxt.pushFilters(directives.map(a => a.logData()));
-        }
+    if (
+        result !== 1 &&
+        trusted === false &&
+        pageStore !== null &&
+        snfe.hasQuery(fctxt)
+    ) {
+        pageStore.redirectNonBlockedRequest(fctxt);
     }
 
     if ( loggerEnabled ) {
@@ -356,7 +356,14 @@ const onBeforeBehindTheSceneRequest = function(fctxt) {
         fctxt.setRealm('network').toLogger();
     }
 
+    // Redirected
+
+    if ( fctxt.redirectURL !== undefined ) {
+        return { redirectUrl: fctxt.redirectURL };
+    }
+
     // Blocked?
+
     if ( result === 1 ) {
         return { cancel: true };
     }
